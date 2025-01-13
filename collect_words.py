@@ -16,16 +16,17 @@ import pandas as pd
 import pickle
 words = Counter()
 i = 0
-
+word_list = []
 for files in sorted:
         data = None
         if i % 10 == 0:
-            pickle.dump(words,open(f"words_{i}.pkl","wb"))
+            pickle.dump(words,open(f"lexical_words_{i}.pkl","wb"))
         if files.endswith(".pkl"):
             data = pd.read_pickle(os.path.join(data_path,files))
             print(data.columns)
-            for word in list(data["label"]):
+            for word in list(data["lexical_word"]):
                 words[word] += 1
+                word_list.append(word)
         i += 1
         print(f"Processed {i} files")
         print(files)
@@ -34,4 +35,5 @@ for files in sorted:
 print("Done")
 
 words
-pickle.dump(words,open("words.pkl","wb"))
+pickle.dump(words,open("lexical_words.pkl","wb"))
+pickle.dump(word_list,open("lexical_word_list.pkl","wb")) # I guess an ordered list of words is also useful

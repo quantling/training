@@ -23,10 +23,14 @@ for files in sorted:
             pickle.dump(words,open(f"lexical_words_{i}.pkl","wb"))
         if files.endswith(".pkl"):
             data = pd.read_pickle(os.path.join(data_path,files))
-            print(data.columns)
-            for word in list(data["lexical_word"]):
-                words[word] += 1
-                word_list.append(word)
+            if isinstance(data, pd.DataFrame):
+                print(data.columns)
+                for word in list(data["lexical_word"]):
+                    words[word] += 1
+                    word_list.append(word)
+            else:
+                print(f"Data is not a DataFrame: {files}")
+        []
         i += 1
         print(f"Processed {i} files")
         print(files)

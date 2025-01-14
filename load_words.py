@@ -8,6 +8,9 @@ import psutil
 # Load the word counts
 words = pickle.load(open("words.pkl", "rb"))
 
+
+skip_index = 0
+
 data_path = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en"
 
 # Initialize counters for test, validation, and training splits
@@ -45,9 +48,7 @@ pickle.dump(training_words, open("training_words.pkl", "wb"))
 # Process each file in the directory
 sorted_files = sorted(os.listdir(data_path))  # Sorting files for better debugging
 for file in sorted_files:
-    test_df = pd.DataFrame()
-    validation_df = pd.DataFrame()
-    training_df = pd.DataFrame()
+  
     if file.endswith(".pkl"):
         print(f"Processing {file}")
         data = pd.read_pickle(os.path.join(data_path, file))
@@ -70,16 +71,12 @@ for file in sorted_files:
                 training_rows.append(row)
 
         # Append rows to respective dataframes
-        test_df = pd.concat([test_df, pd.DataFrame(test_rows)], ignore_index=True)
-        validation_df = pd.concat([validation_df, pd.DataFrame(validation_rows)], ignore_index=True)
-        training_df = pd.concat([training_df, pd.DataFrame(training_rows)], ignore_index=True)
-
-        test_df.to_pickle(os.path.join(data_path,f"test_data{unique_identifier}.pkl"))
-        validation_df.to_pickle(os.path.join(data_path,f"validation_data{unique_identifier}.pkl"))
-        training_df.to_pickle(os.path.join(data_path,f"training_data{unique_identifier}.pkl"))
+        pd.DataFrame(test_rows).to_pickle(os.path.join(data_path, f"test_data{file.split('df')[1]}"))
+        pd.DataFrame(validation_rows).to_pickle(os.path.join(data_path, f"validation_data{file.split('df')[1]}"))
+        pd.DataFrame(training_rows).to_pickle(os.path.join(data_path, f"training_data{file.split('df')[1]}"))
         # Free up memory
         del data
-        del test_df, validation_df, training_df
+        del test_rows, validation_rows, training_rows
         print(f"Memory usage: {psutil.virtual_memory().percent}%")
 
         gc.collect()

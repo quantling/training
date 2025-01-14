@@ -40,13 +40,14 @@ pickle.dump(validation_words, open("validation_words.pkl", "wb"))
 pickle.dump(training_words, open("training_words.pkl", "wb"))
 
 # Initialize dataframes for test, validation, and training splits
-test_df = pd.DataFrame()
-validation_df = pd.DataFrame()
-training_df = pd.DataFrame()
+
 
 # Process each file in the directory
 sorted_files = sorted(os.listdir(data_path))  # Sorting files for better debugging
 for file in sorted_files:
+    test_df = pd.DataFrame()
+    validation_df = pd.DataFrame()
+    training_df = pd.DataFrame()
     if file.endswith(".pkl"):
         print(f"Processing {file}")
         data = pd.read_pickle(os.path.join(data_path, file))

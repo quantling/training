@@ -52,31 +52,34 @@ for file in sorted_files:
     if file.endswith(".pkl"):
         print(f"Processing {file}")
         data = pd.read_pickle(os.path.join(data_path, file))
+        if isinstance(data, pd.DataFrame):
+            
+            # Split data based on the counters
+            test_rows = []
+            validation_rows = []
+            training_rows = []
+            unique_identifier = file.split("df")[1]
+            print(unique_identifier)
+            for _, row in data.iterrows():
+                word = row["label"]  
+                if test_words[word] > 0:
+                    test_words[word] -= 1
+                    test_rows.append(row)
+                elif validation_words[word] > 0:
+                    validation_words[word] -= 1
+                    validation_rows.append(row)
+                else:
+                    training_rows.append(row)
 
-        # Split data based on the counters
-        test_rows = []
-        validation_rows = []
-        training_rows = []
-        unique_identifier = file.split("df")[1]
-        print(unique_identifier)
-        for _, row in data.iterrows():
-            word = row["label"]  
-            if test_words[word] > 0:
-                test_words[word] -= 1
-                test_rows.append(row)
-            elif validation_words[word] > 0:
-                validation_words[word] -= 1
-                validation_rows.append(row)
-            else:
-                training_rows.append(row)
-
-        # Append rows to respective dataframes
-        pd.DataFrame(test_rows).to_pickle(os.path.join(data_path, f"test_data{file.split('df')[1]}"))
-        pd.DataFrame(validation_rows).to_pickle(os.path.join(data_path, f"validation_data{file.split('df')[1]}"))
-        pd.DataFrame(training_rows).to_pickle(os.path.join(data_path, f"training_data{file.split('df')[1]}"))
-        # Free up memory
+            # Append rows to respective dataframes
+            pd.DataFrame(test_rows).to_pickle(os.path.join(data_path, f"test_data{file.split('df')[1]}"))
+            pd.DataFrame(validation_rows).to_pickle(os.path.join(data_path, f"validation_data{file.split('df')[1]}"))
+            pd.DataFrame(training_rows).to_pickle(os.path.join(data_path, f"training_data{file.split('df')[1]}"))
+            # Free up memory
+            del test_rows, validation_rows, training_rows
+            
         del data
-        del test_rows, validation_rows, training_rows
+       
         print(f"Memory usage: {psutil.virtual_memory().percent}%")
 
         gc.collect()

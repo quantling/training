@@ -6,12 +6,12 @@ import pandas as pd
 import gc
 import psutil
 import argparse
-
+from tqdm import tqdm
 
 
 def split_words(data_path, skip_index):
     # Load the word counts
-    words = pickle.load(open("words.pkl", "rb"))
+    words = pickle.load(open("words_en.pkl", "rb"))
 
 
 
@@ -53,8 +53,11 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
 
     # Process each file in the directory
     sorted_files = sorted(os.listdir(data_path))  # Sorting files for better debugging
+    excluded_keywords = ["training", "test", "validation"]
+    filtered_files = [file for file in sorted_files if not  any(keyword in file.lower() for keyword in excluded_keywords)]
+    sorted_files = filtered_files
     i = 0
-    for file in sorted_files:
+    for file in tqdm(sorted_files):
         
         if skip_index > 0:
             skip_index -= 1
@@ -62,6 +65,7 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
             
         
         if file.endswith(".pkl"):
+
             print(f"Processing {file}")
             data = pd.read_pickle(os.path.join(data_path, file))
             if isinstance(data, pd.DataFrame):

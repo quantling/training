@@ -9,12 +9,11 @@ import argparse
 
 
 
-def split_words(data_path):
+def split_words(data_path, skip_index):
     # Load the word counts
     words = pickle.load(open("words.pkl", "rb"))
 
 
-    skip_index = 83
 
     data_path = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en"
 
@@ -54,12 +53,14 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
 
     # Process each file in the directory
     sorted_files = sorted(os.listdir(data_path))  # Sorting files for better debugging
+    i = 0
     for file in sorted_files:
         
         if skip_index > 0:
             skip_index -= 1
             continue
-    
+            
+        
         if file.endswith(".pkl"):
             print(f"Processing {file}")
             data = pd.read_pickle(os.path.join(data_path, file))
@@ -88,6 +89,11 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
                 pd.DataFrame(training_rows).to_pickle(os.path.join(data_path, f"training_data{file.split('df')[1]}"))
                 # Free up memory
                 del test_rows, validation_rows, training_rows
+                if i % 10 == 0: # Save the counters every 10 files, so we can resume later
+                    pickle.dump(test_words, open(f"test_words_{i}.pkl", "wb"))
+                    pickle.dump(validation_words, open("validation_words_{i}.pkl", "wb"))
+                    pickle.dump(training_words, open("training_words_{i}.pkl", "wb"))
+                i += 1
                 
             del data
         
@@ -103,16 +109,17 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split data into test, validation, and training sets.")
-    parser.add_argument("--data_path", type=str, help="Path to the data directory.")
+    parser.add_argument("--data_path", type=str, help="Path to the data directory.", default="../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en")
     parser.add_argument("--skip_index", type=int, help="Index of the file to skip.")
     parser.add_argument("--split_words", type=bool, help="Whether to split words or not.",default=False)
     args = parser.parse_args()
-
+    if args.skip_index is None:
+            skip_index = 0
     if args.split_words:
-        split_words(args.data_path)
+        split_words(args.data_path, skip_index)
     else:
         test_words= pickle.load(open("test_words.pkl", "rb"))
         validation_words = pickle.load(open("validation_words.pkl", "rb"))
         training_words =pickle.load(open("training_words.pkl", "rb"))
-
-        split_words(args.data_path, args.skip_index, test_words, validation_words, training_words)
+       
+        split_data(args.data_path, skip_index, test_words, validation_words, training_words)

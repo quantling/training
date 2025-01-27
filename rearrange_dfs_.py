@@ -11,7 +11,8 @@ import logging
 
 def rearrange_df(files, start, end, split):
     for file in tqdm(files):
-        pass
+        logging.info(f"Processing {file}")
+        df = pd.read_pickle(f"{data_path}/{file}")
 
 if __name__ == "main":
 
@@ -26,6 +27,9 @@ if __name__ == "main":
     parser.add_argument('--test', action='store_false')
     parser.add_argument('--validation', action='store_false')
     parser.add_argument('--training', action='store_false')
+    parser.add_argument('--data_path', type=str, help="Path to the data directory w/o language.", default="../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder")
+    parser.add_argument("--language", type=str, help="Language of the data.", default="en")
+    parser.add_argument("--size", type=int, help="Size of the data.", default=5000)
     args = parser.parser_args()
 
 
@@ -34,8 +38,8 @@ if __name__ == "main":
     test = args.test
     validation = args.validation
     training = args.training
-    DATA_FRAME_SIZE = 5000
-    data_path = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en"
+   
+    
 
     sorted_files = sorted(os.listdir(data_path)) 
 

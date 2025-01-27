@@ -7,15 +7,19 @@ import gc
 import psutil
 import argparse
 from tqdm import tqdm
+import logging
+import shutil 
+
+from utils import NotEnoughDiskSpaceError
 
 
-def split_words(data_path, skip_index):
+def split_words(data_path, skip_index, language):
     # Load the word counts
-    words = pickle.load(open("words_en.pkl", "rb"))
+    words = pickle.load(open(f"words_{language}.pkl", "rb"))
 
 
-
-    data_path = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en"
+  
+   
 
     # Initialize counters for test, validation, and training splits
     test_words = Counter()
@@ -23,6 +27,7 @@ def split_words(data_path, skip_index):
     training_words = Counter()
 
     # Distribute word counts into test, validation, and training
+    print(words.items())
     for word in words:
     
         word_count = words[word]
@@ -46,26 +51,39 @@ def split_words(data_path, skip_index):
     pickle.dump(test_words, open("test_words.pkl", "wb"))
     pickle.dump(validation_words, open("validation_words.pkl", "wb"))
     pickle.dump(training_words, open("training_words.pkl", "wb"))
-    return split_data(data_path, skip_index, test_words, validation_words, training_words)
+    return split_data(data_path, skip_index, test_words, validation_words, training_words,language)
 
 
-def split_data(data_path, skip_index,test_words, validation_words,training_words):
+def split_data(data_path, skip_index,test_words, validation_words,training_words, language):
 
     # Process each file in the directory
     sorted_files = sorted(os.listdir(data_path))  # Sorting files for better debugging
-    excluded_keywords = ["training", "test", "validation"]
-    filtered_files = [file for file in sorted_files if not  any(keyword in file.lower() for keyword in excluded_keywords)]
+    filtered_files = [file for file in sorted_files if file.startswith("corpus_as_df_mpepoch_") and file.endswith(".pkl")]
     sorted_files = filtered_files
+    print(sorted_files)
     i = 0
     for file in tqdm(sorted_files):
         
         if skip_index > 0:
             skip_index -= 1
+            logging.info(f"Skipping {file}") 
             continue
             
+
+
         
         if file.endswith(".pkl"):
 
+            total, used, free = shutil.disk_usage("/")
+
+            print("Total: %d GiB" % (total // (2**30)))
+            print("Used: %d GiB" % (used // (2**30)))
+            print("Free: %d GiB" % (free // (2**30)))
+            if free // (2**30) < 25:
+                pickle.dump(test_words, open(f"test_words_{i}_{language}.pkl", "wb"))
+                pickle.dump(validation_words, open(f"validation_words_{i}_{language}.pkl", "wb"))
+                pickle.dump(training_words, open(f"training_words_{i}_{language}.pkl", "wb"))
+                raise NotEnoughDiskSpaceError()
             print(f"Processing {file}")
             data = pd.read_pickle(os.path.join(data_path, file))
             if isinstance(data, pd.DataFrame):
@@ -88,15 +106,16 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
                         training_rows.append(row)
 
                 # Append rows to respective dataframes
+                logging.info(f"Saving {file}s data")
                 pd.DataFrame(test_rows).to_pickle(os.path.join(data_path, f"test_data{file.split('df')[1]}"))
                 pd.DataFrame(validation_rows).to_pickle(os.path.join(data_path, f"validation_data{file.split('df')[1]}"))
                 pd.DataFrame(training_rows).to_pickle(os.path.join(data_path, f"training_data{file.split('df')[1]}"))
                 # Free up memory
                 del test_rows, validation_rows, training_rows
                 if i % 10 == 0: # Save the counters every 10 files, so we can resume later
-                    pickle.dump(test_words, open(f"test_words_{i}.pkl", "wb"))
-                    pickle.dump(validation_words, open("validation_words_{i}.pkl", "wb"))
-                    pickle.dump(training_words, open("training_words_{i}.pkl", "wb"))
+                    pickle.dump(test_words, open(f"test_words_{i}_{language}.pkl", "wb"))
+                    pickle.dump(validation_words, open(f"validation_words_{i}_{language}.pkl", "wb"))
+                    pickle.dump(training_words, open(f"training_words_{i}_{language}.pkl", "wb"))
                 i += 1
                 
             del data
@@ -113,17 +132,26 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Split data into test, validation, and training sets.")
-    parser.add_argument("--data_path", type=str, help="Path to the data directory.", default="../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_en")
+    parser.add_argument("--data_path", type=str, help="Path to the data directory w/o language.", default="../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder")
     parser.add_argument("--skip_index", type=int, help="Index of the file to skip.")
     parser.add_argument("--split_words", type=bool, help="Whether to split words or not.",default=False)
+    parser.add_argument("--language", type=str, help="Language of the data.", default="de")
     args = parser.parse_args()
+
+    language = args.language
+    data_path = args.data_path + f"_{language}"
+    
+    skip_index = args.skip_index
     if args.skip_index is None:
             skip_index = 0
     if args.split_words:
-        split_words(args.data_path, skip_index)
+        split_words(data_path, skip_index, language)
     else:
-        test_words= pickle.load(open("test_words.pkl", "rb"))
-        validation_words = pickle.load(open("validation_words.pkl", "rb"))
-        training_words =pickle.load(open("training_words.pkl", "rb"))
-       
-        split_data(args.data_path, skip_index, test_words, validation_words, training_words)
+        test_path ="test_words.pkl" if skip_index == 0 else f"test_words_{skip_index}_{language}.pkl"
+        validation_path = "validation_words.pkl" if skip_index == 0 else f"validation_words__{skip_index}_{language}.pkl" #this is a typo in the original code, it is fixed now so please be aware of this
+        training_path = "training_words.pkl" if skip_index == 0 else f"training_words_{skip_index}_{language}.pkl"
+        test_words= pickle.load(open(test_path, "rb"))
+        validation_words = pickle.load(open(validation_path, "rb"))
+        training_words =pickle.load(open(training_path, "rb"))
+        skip_index = skip_index + 1
+        split_data(data_path, skip_index, test_words, validation_words, training_words, language)

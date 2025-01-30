@@ -10,7 +10,7 @@ from tqdm import tqdm
 import logging
 import shutil 
 
-from utils import NotEnoughDiskSpaceError
+from split_utils import NotEnoughDiskSpaceError
 
 
 def split_words(data_path, skip_index, language):
@@ -48,9 +48,9 @@ def split_words(data_path, skip_index, language):
     print(test_words.total() / words.total(), validation_words.total() / words.total(), training_words.total() / words.total())
 
     # Save the counters
-    pickle.dump(test_words, open("test_words.pkl", "wb"))
-    pickle.dump(validation_words, open("validation_words.pkl", "wb"))
-    pickle.dump(training_words, open("training_words.pkl", "wb"))
+    pickle.dump(test_words, open(f"test_words_{language}.pkl", "wb"))
+    pickle.dump(validation_words, open(f"validation_words_{language}.pkl", "wb"))
+    pickle.dump(training_words, open(f"training_words_{language}.pkl", "wb"))
     return split_data(data_path, skip_index, test_words, validation_words, training_words,language)
 
 
@@ -74,7 +74,7 @@ def split_data(data_path, skip_index,test_words, validation_words,training_words
         
         if file.endswith(".pkl"):
 
-            total, used, free = shutil.disk_usage("/")
+            total, used, free = shutil.disk_usage(data_path)
 
             print("Total: %d GiB" % (total // (2**30)))
             print("Used: %d GiB" % (used // (2**30)))

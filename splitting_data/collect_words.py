@@ -1,5 +1,5 @@
 
-data_path = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_de"
+data_path = "../../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_de"
 import logging
 import os
 logging.basicConfig(level=logging.INFO)
@@ -8,9 +8,9 @@ import os
 import pandas as pd
 import pickle
 from tqdm import tqdm
-import os
+
 import psutil
-import os
+
 import argparse
 
 def collect_words(data_path, collumn_name):

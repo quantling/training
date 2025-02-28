@@ -23,7 +23,7 @@ def collect_fast_text_vectors(data_path, split_index, language, skip_index):
     filtered_files = [
         file
         for file in sorted_files
-        if file.startswith("corpus_as_df_mpepoch_") and file.endswith(".pkl")
+        if file.startswith("corpus_as_df_mp") and file.endswith(".pkl")
     ]
     for files in filtered_files:
         logging.info(f"Processing {files}")
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         type=int,
         required=False,
     )
-    parser.add_argument("--language", help="Language of the data", default="de")
+    parser.add_argument("--language", help="Language of the data", default="en")
     parser.add_argument("--skip_index", help="Index to skip", default=[], type=list)
     args = parser.parse_args()
     collect_fast_text_vectors(

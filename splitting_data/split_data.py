@@ -129,13 +129,13 @@ def split_data(
                 pickle.dump(
                     test_words,
                     open(
-                        os.join.path(test_dir, f"test_words_{i}_{language}.pkl"), "wb"
+                        os.path.join(test_dir, f"test_words_{i}_{language}.pkl"), "wb"
                     ),
                 )
                 pickle.dump(
                     validation_words,
                     open(
-                        os.join.path(
+                        os.path.join(
                             validation_dir, f"validation_words_{i}_{language}.pkl"
                         ),
                         "wb",
@@ -144,7 +144,7 @@ def split_data(
                 pickle.dump(
                     training_words,
                     open(
-                        os.join.path(
+                        os.path.join(
                             training_dir, f"training_words_{i}_{language}.pkl"
                         ),
                         "wb",
@@ -169,6 +169,7 @@ def split_data(
                         validation_words[word] -= 1
                         validation_rows.append(row)
                     else:
+                        training_words[word] -=1
                         training_rows.append(row)
 
                 # Append rows to respective dataframes
@@ -194,40 +195,50 @@ def split_data(
                 training_df = pd.concat([training_df, training_df_i])
                 validation_df = pd.concat([validation_df, validation_df_i])
                 test_df = pd.concat([test_df, test_df_i])
+
+
                 training_df_len = len(training_df)
                 validation_df_len = len(validation_df)
                 test_df_len = len(test_df)
                 logging.info(f"train length: {training_df_len}")
                 logging.info(f"validation length:  {validation_df_len}")
                 logging.info(f"test length:  {test_df_len}")
-                if test_df_len >= data_size:
+                while test_df_len >= data_size:
                     test_df_i = test_df[:data_size]
                     test_df = test_df[data_size:]
+                    logging.info("writing test file")
                     test_df_i.to_pickle(
                         os.path.join(
                             data_path, f"test_data_{language}_{test_index}.pkl"
                         )
                     )
+                    del test_df_i
                     test_index += 1
-                if validation_df_len >= data_size:
+                while validation_df_len >= data_size:
+                   
                     validation_df_i = validation_df[:data_size]
                     validation_df = validation_df[data_size:]
+                    logging.info("writing validation file")
                     validation_df_i.to_pickle(
                         os.path.join(
                             data_path,
                             f"validation_data_{language}_{validation_index}.pkl",
                         )
                     )
+                    del validation_df_i
                     validation_index += 1
-                if training_df_len >= data_size:
+                while training_df_len >= data_size:
+                   
                     training_df_i = training_df[:data_size]
                     training_df = training_df[data_size:]
-
+                    logging.info("writing training file")
                     training_df_i.to_pickle(
                         os.path.join(
                             data_path, f"training_data_{language}_{training_index}.pkl"
                         )
                     )
+                    del training_df_i
+                    training_index += 1
                 # Free up memory
                 del test_rows, validation_rows, training_rows
                 if (
@@ -251,26 +262,27 @@ def split_data(
 
             gc.collect()
 
-    def split_and_save_dataframe(df, data_size, data_path, base_filename="", index=i):
+    def split_and_save_dataframe(df, data_size, data_path, base_filename="", index=i, language = "no_language_provided"):
         os.makedirs(data_path, exist_ok=True)  # Ensure directory exists
 
         num_splits = (len(df) + data_size - 1) // data_size  # Ceiling division
 
         for j in range(num_splits):
-            chunk = df.iloc[i * data_size : (j + 1) * data_size]  # Slice DataFrame
-            chunk.to_pickle(os.path.join(data_path, f"{base_filename}_{index +j}.pkl"))
+            chunk = df[j * data_size : (j + 1) * data_size]  # Slice DataFrame
+            chunk.to_pickle(os.path.join(data_path, f"{base_filename}_{language}_{index +j}.pkl"))
 
-    split_and_save_dataframe(test_df, data_size, data_path, "test_data", test_index)
+    split_and_save_dataframe(test_df, data_size, data_path, "test_data", test_index, language = language)
     split_and_save_dataframe(
-        validation_df, data_size, data_path, "validation_data", validation_index
+        validation_df, data_size, data_path, "validation_data", validation_index, language = language
     )
     split_and_save_dataframe(
-        training_df, data_size, data_path, "training_data", training_index
+        training_df, data_size, data_path, "training_data", training_index, language = language
     )
     print("Data splitting completed successfully.")
 
 
 if __name__ == "__main__":
+    print("file activated")
     parser = argparse.ArgumentParser(
         description="Split data into test, validation, and training sets."
     )

@@ -192,14 +192,18 @@ def split_data(
                         columns=["mfa_word", "mfa_phones", "wav_recording"]
                     )
 
-                training_df = pd.concat([training_df, training_df_i])
-                validation_df = pd.concat([validation_df, validation_df_i])
+
                 test_df = pd.concat([test_df, test_df_i])
+                validation_df = pd.concat([validation_df, validation_df_i])
+                training_df = pd.concat([training_df, training_df_i])
+              
+              
 
-
-                training_df_len = len(training_df)
-                validation_df_len = len(validation_df)
                 test_df_len = len(test_df)
+                validation_df_len = len(validation_df)
+                training_df_len = len(training_df)
+                
+               
                 logging.info(f"train length: {training_df_len}")
                 logging.info(f"validation length:  {validation_df_len}")
                 logging.info(f"test length:  {test_df_len}")
@@ -214,6 +218,7 @@ def split_data(
                     )
                     del test_df_i
                     test_index += 1
+                    test_df_len = len(test_df)
                 while validation_df_len >= data_size:
                    
                     validation_df_i = validation_df[:data_size]
@@ -227,6 +232,7 @@ def split_data(
                     )
                     del validation_df_i
                     validation_index += 1
+                    validation_df_len = len(validation_df)
                 while training_df_len >= data_size:
                    
                     training_df_i = training_df[:data_size]
@@ -239,6 +245,7 @@ def split_data(
                     )
                     del training_df_i
                     training_index += 1
+                    training_df_len = len(training_df)
                 # Free up memory
                 del test_rows, validation_rows, training_rows
                 if (
@@ -257,6 +264,7 @@ def split_data(
                 i += 1
 
             del data
+            del  test_df_i,validation_df_i,training_df_i # just to be sure
 
             print(f"Memory usage: {psutil.virtual_memory().percent}%")
 

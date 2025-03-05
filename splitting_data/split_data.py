@@ -97,7 +97,7 @@ def split_data(
     filtered_files = [
         file
         for file in sorted_files
-        if file.startswith("corpus_as_df_mpepoch_") and file.endswith(".pkl")
+        if file.startswith("corpus_as_df_mp_epoch_") and file.endswith(".pkl")
     ]
     sorted_files = filtered_files
     logging.info(sorted_files)
@@ -210,42 +210,57 @@ def split_data(
                 while test_df_len >= data_size:
                     test_df_i = test_df[:data_size]
                     test_df = test_df[data_size:]
-                    logging.info("writing test file")
-                    test_df_i.to_pickle(
-                        os.path.join(
-                            data_path, f"test_data_{language}_{test_index}.pkl"
+                    file_path =f"test_data_{language}_{test_index}.pkl"
+                    logging.info(f"writing test file:{file_path} ")
+                    if len(test_df_i) != 0:
+                        test_df_i.to_pickle(
+                            os.path.join(
+                                data_path, file_path
+                            )
                         )
-                    )
                     del test_df_i
                     test_index += 1
+                    old_len = test_df_len
                     test_df_len = len(test_df)
+                    logging.info(f"lenght of the test_file after writing :{test_df_len}")
+                    assert old_len == test_df_len + data_size
                 while validation_df_len >= data_size:
                    
                     validation_df_i = validation_df[:data_size]
                     validation_df = validation_df[data_size:]
-                    logging.info("writing validation file")
-                    validation_df_i.to_pickle(
-                        os.path.join(
-                            data_path,
-                            f"validation_data_{language}_{validation_index}.pkl",
+                    file_path = f"validation_data_{language}_{validation_index}.pkl"
+                    logging.info(f"writing validation file {file_path}")
+                    if len(validation_df_i) != 0:
+                        validation_df_i.to_pickle(
+                            os.path.join(
+                                data_path,
+                                file_path,
+                            )
                         )
-                    )
                     del validation_df_i
                     validation_index += 1
+                    old_len = validation_df_len
                     validation_df_len = len(validation_df)
+                    logging.info(f"lenght of the validation_file after writing :{validation_df_len}")
+                    assert old_len == validation_df_len + data_size
                 while training_df_len >= data_size:
                    
                     training_df_i = training_df[:data_size]
                     training_df = training_df[data_size:]
-                    logging.info("writing training file")
-                    training_df_i.to_pickle(
-                        os.path.join(
-                            data_path, f"training_data_{language}_{training_index}.pkl"
-                        )
-                    )
+                    file_path = f"training_data_{language}_{training_index}.pkl"
+                    logging.info(f"writing training file {file_path}")
+                    if len(training_df_i) != 0:
+                        training_df_i.to_pickle(
+                            os.path.join(
+                                    data_path, file_path
+                                )
+                            )
                     del training_df_i
                     training_index += 1
+                    old_len = training_df_len
                     training_df_len = len(training_df)
+                    logging.info(f"lenght of the training_file after writing :{training_df_len}")
+                    assert old_len == training_df_len + data_size
                 # Free up memory
                 del test_rows, validation_rows, training_rows
                 if (
@@ -264,11 +279,10 @@ def split_data(
                 i += 1
 
             del data
-            del  test_df_i,validation_df_i,training_df_i # just to be sure
-
+            
             print(f"Memory usage: {psutil.virtual_memory().percent}%")
 
-            gc.collect()
+           
 
     def split_and_save_dataframe(df, data_size, data_path, base_filename="", index=i, language = "no_language_provided"):
         os.makedirs(data_path, exist_ok=True)  # Ensure directory exists
@@ -290,7 +304,7 @@ def split_data(
 
 
 if __name__ == "__main__":
-    print("file activated")
+
     parser = argparse.ArgumentParser(
         description="Split data into test, validation, and training sets."
     )

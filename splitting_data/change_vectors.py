@@ -27,17 +27,17 @@ def collect_fast_text_vectors(data_path, split_index, language, skip_index):
     ]
     for files in filtered_files:
         logging.info(f"Processing {files}")
-    vector_dict = (
-        {}
-        if split_index == 0
-        else pickle.load(open(f"vectors_{split_index}_{language}.pkl", "rb"))
-    )
+    if split_index == 0:
+        vector_dict = {}
+        word_counter = Counter()
+    else:
+        vector_dict = pickle.load(open(f"vectors_{split_index}_{language}.pkl", "rb"))
+        word_counter = pickle.load(open(f"word_counter_{split_index}_{language}.pkl", "rb"))
+        logging.info(f"Loaded vectors_{split_index}_{language}.pkl")
+        logging.info(f"Loaded word_counter_{split_index}_{language}.pkl")
+    
     i = 0
-    word_counter = (
-        Counter()
-        if split_index == 0
-        else pickle.load(open(f"word_counter_{split_index}_{language}.pkl", "rb"))
-    )
+   
     for files in tqdm(filtered_files):
 
         if i < split_index:
@@ -53,6 +53,8 @@ def collect_fast_text_vectors(data_path, split_index, language, skip_index):
         if i % 5 == 0:
             pickle.dump(vector_dict, open(f"vectors_{i}_{language}.pkl", "wb"))
             pickle.dump(word_counter, open(f"word_counter_{i}_{language}.pkl", "wb"))
+            logging.info(f"Saved vectors_{i}_{language}.pkl")
+            logging.info(f"Saved word_counter_{i}_{language}.pkl")
         if files.endswith(".pkl"):
             data = pd.read_pickle(os.path.join(data_path, files))
             if isinstance(data, pd.DataFrame):

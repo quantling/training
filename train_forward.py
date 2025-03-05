@@ -11,6 +11,8 @@ from tqdm import tqdm
 import pandas as pd
 import pickle
 import logging
+import gc
+import argparse
 
 logging.basicConfig(level=logging.INFO)
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -44,8 +46,8 @@ class ForwardDataset(Dataset):
         cp_normalized = row["cp_norm"]
         return cp_normalized, normalized_melspec
 
-class AccedingSequenceLengthBatchSampler(Sampler[List[int]]):
-     def __init__(self, data: List[str], batch_size: int) -> None:
+class AccedingSequenceLengthBatchSampler(torch.nn.data.Sampler[List[int]]):
+    def __init__(self, data: List[str], batch_size: int) -> None:
         self.data = data
         self.batch_size = batch_size
 
@@ -61,15 +63,15 @@ def pad_tensor(tensor, target_length, allow_longer = False):
     """Pads the tensor to target_length by repeating the last element.
     Returns a mask """
     current_length = tensor.shape[0]
-    if current_lenght > target_lenght and not allow_longer:
+    if current_length > target_length and not allow_longer:
         raise ValueError # if we don't have max size as target sths wrong
     if current_length == target_length:
-        return tensor, torch.ones(target_lenght, dtype=torch.bool)
+        return tensor, torch.ones(target_length, dtype=torch.bool)
 
 
     last_element = tensor[-1].unsqueeze(0)  # Get the last element
     padding = last_element.repeat(target_length - current_length, *[1] * (tensor.dim() - 1))
-    mask = torch.cat(torch.ones(current_lenght, dtype=torch.bool),torch.zeros(target_lenght - current_length, dtype=torch.bool))
+    mask = torch.cat(torch.ones(current_length, dtype=torch.bool),torch.zeros(target_length - current_length, dtype=torch.bool))
     return torch.cat([tensor, padding], dim=0), mask
 
 
@@ -79,7 +81,7 @@ def collate_batch(batch):
     padded_batch = []
     mask = []
     for sample in batch: 
-        padded_sample , sample_mask =  pad_tensor(sample, max_lenght) 
+        padded_sample , sample_mask =  pad_tensor(sample, max_length) 
         padded_batch.append(padded_sample)
         padded_batch.append(sample_mask)
 
@@ -87,13 +89,14 @@ def collate_batch(batch):
 
     return torch.stack(padded_batch), torch.stach(mask)
 
+
 def train_forward_on_one_df(
     batch_size=8,
     lr=1e-3,
     device="cuda",
     file_path="",
     criterion=None,
-    optimizer_module=None,
+    optimizer=None,
     forward_model=None,
 ):
 
@@ -107,8 +110,11 @@ def train_forward_on_one_df(
     )
     logging.info("Trainable Parameters in Model: %s", pytorch_total_params)
 
-    criterion = RMSELoss()
-    optimizer = optimizer_module(forward_model.parameters(), lr=lr)
+    #is the optimizer updated from the last df?
+    if optimizer is None:
+        raise ValueError("Optimizer is None")
+    if criterion is None:
+        raise ValueError("Criterion is None")
 
     for batch in tqdm(dataloader):
         cp, melspec = batch
@@ -123,7 +129,7 @@ def train_forward_on_one_df(
 
 
 def train_whole_dataset(
-   data_path,  batchsize = 8 , lr, device = DEVICE, criterion = torch.optim.Adam(), optimizer_module, epochs=10, start_epoch = 0 , skip_index = 0
+   data_path,  batch_size = 8 , lr = 1e-4, device = DEVICE, criterion = None, optimizer_module= None, epochs=10, start_epoch = 0 , skip_index = 0, validate_every = 1, save_every = 1
 ):
     files = os.listdir(data_path)
     filtered_files = [file for file in files if file.startswith("training_") and file.endswith(".pkl")]
@@ -145,7 +151,7 @@ def train_whole_dataset(
             if i < skip_index:
                 continue
             train_forward_on_one_df(
-                batch_size=batch,
+                batch_size=batch_size,
                 lr=lr,
                 device=device,
                 file_path=os.path.join(data_path, file),
@@ -153,10 +159,12 @@ def train_whole_dataset(
                 optimizer_module=optimizer_module,
                 forward_model=forward_model,
             )
+            gc.collect()
         skip_index = 0
+        
 
 
-f __name__ == "__main__":
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Collect words from a folder of pickled dataframes"
     )
@@ -166,13 +174,30 @@ f __name__ == "__main__":
         default="../../../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_",
     )
     parser.add_argument(
-        "--split_index",
+        "--skip_index",
         help="Index to start from",
         default=0,
         type=int,
         required=False,
     )
-    parser.add_argument("--language", help="Language of the data", default="en")
+    parser.add_argument("--start_epoch", help="Epoch to start from", default=0, type=int)
+    parser.add_argument("--language", help="Language of the data", default="de")
     parser.add_argument("--skip_index", help="Index to skip", default=[], type=list)
+    parser.add_argument("optimizer", help="Optimizer to use", default="adam")
+    parser.add_argument("criterion", help="Criterion to use", default="rmse")
     args = parser.parse_args()
+
+    if args.optimizer == "adam":
+        optimizer_module = optim.Adam
+    else:
+        raise ValueError("Optimizer not supported")
+    if args.criterion == "rmse":
+        criterion = RMSELoss()
+    else:
+        raise ValueError("Criterion not supported")
+    train_whole_dataset(
+        data_path=args.data_path,
+        skip_index=args.skip_index,
+        start_epoch=args.start_epoch,
+    )
     

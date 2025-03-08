@@ -46,18 +46,19 @@ class ForwardDataset(Dataset):
         cp_normalized = row["cp_norm"]
         return cp_normalized, normalized_melspec
 
-class AccedingSequenceLengthBatchSampler(torch.nn.data.Sampler[List[int]]):
-    def __init__(self, data: List[str], batch_size: int) -> None:
+class AccedingSequenceLengthBatchSampler(torch.utils.data.Sampler[int]):
+    def __init__(self, data: list[str], batch_size: int) -> None:
         self.data = data
         self.batch_size = batch_size
 
-    def __len__(self) -> int:
+    def __len__(self):
         return (len(self.data) + self.batch_size - 1) // self.batch_size
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self):
         sizes = torch.tensor([len(x) for x in self.data])
-        for batch in torch.chunk(torch.argsort(sizes), len(self)):
-            yield batch.tolist()
+        indices = torch.argsort(sizes).tolist()
+        batches = [indices[i:i + self.batch_size] for i in range(0, len(indices), self.batch_size)]
+        yield from batches
     
 def pad_tensor(tensor, target_length, allow_longer = False):
     """Pads the tensor to target_length by repeating the last element.
@@ -102,7 +103,7 @@ def train_forward_on_one_df(
 
     df_train = pd.read_pickle(file_path)
     dataset = ForwardDataset(df_train)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, sampler = AccedingSequenceLengthBatchSampler, collate_batch = collate_batch)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler = AccedingSequenceLengthBatchSampler, collate_fn = collate_batch)
 
     forward_model.train()
     pytorch_total_params = sum(
@@ -126,14 +127,17 @@ def train_forward_on_one_df(
         loss = criterion(output, melspec)
         loss.backward()
         optimizer.step()
+        print(loss.item())
 
 
 def train_whole_dataset(
    data_path,  batch_size = 8 , lr = 1e-4, device = DEVICE, criterion = None, optimizer_module= None, epochs=10, start_epoch = 0 , skip_index = 0, validate_every = 1, save_every = 1
-):
+):  
+    data_path = data_path + args.language
     files = os.listdir(data_path)
+    #print(files)
     filtered_files = [file for file in files if file.startswith("training_") and file.endswith(".pkl")]
-
+    print(filtered_files)
     forward_model = (
         ForwardModel(
             num_lstm_layers=1,
@@ -145,8 +149,11 @@ def train_whole_dataset(
         .double()
         .to(DEVICE)
     )
+    optimizer = optimizer_module(forward_model.parameters(), lr=lr)
     for epoch in range(epochs):
-        shuffeled_files = np.random.shuffle(filtered_files)
+        np.random.shuffle(filtered_files)
+        shuffeled_files = filtered_files
+        print(shuffeled_files)
         for i,file in enumerate(shuffeled_files):
             if i < skip_index:
                 continue
@@ -156,7 +163,7 @@ def train_whole_dataset(
                 device=device,
                 file_path=os.path.join(data_path, file),
                 criterion=criterion,
-                optimizer_module=optimizer_module,
+                optimizer=optimizer,
                 forward_model=forward_model,
             )
             gc.collect()
@@ -182,13 +189,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--start_epoch", help="Epoch to start from", default=0, type=int)
     parser.add_argument("--language", help="Language of the data", default="de")
-    parser.add_argument("--skip_index", help="Index to skip", default=[], type=list)
-    parser.add_argument("optimizer", help="Optimizer to use", default="adam")
-    parser.add_argument("criterion", help="Criterion to use", default="rmse")
+
+    parser.add_argument("--optimizer", help="Optimizer to use", default="adam")
+    parser.add_argument("--criterion", help="Criterion to use", default="rmse")
     args = parser.parse_args()
 
     if args.optimizer == "adam":
-        optimizer_module = optim.Adam
+        optimizer_module = torch.optim.Adam
     else:
         raise ValueError("Optimizer not supported")
     if args.criterion == "rmse":
@@ -199,5 +206,7 @@ if __name__ == "__main__":
         data_path=args.data_path,
         skip_index=args.skip_index,
         start_epoch=args.start_epoch,
+        optimizer_module=optimizer_module,
+        criterion=criterion,
     )
     

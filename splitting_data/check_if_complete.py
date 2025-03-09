@@ -92,7 +92,7 @@ def check_if_complete(data_path, language):
   
    
   
-    if  word_counter_sum == 0: logging.warning( "Not all counts are zero in word_counter")
+    if  word_counter_sum != 0: logging.warning( "Not all counts are zero in word_counter")
     
     print(test_words_sum, validation_words_sum, training_words_sum, word_counter_sum)
    

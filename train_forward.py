@@ -46,8 +46,8 @@ class ForwardDataset(Dataset):
         cp_normalized = row["cp_norm"]
         return cp_normalized, normalized_melspec
 
-class AccedingSequenceLengthBatchSampler(torch.utils.data.Sampler[int]):
-    def __init__(self, data: list[str], batch_size: int) -> None:
+class AccedingSequenceLengthBatchSampler(torch.utils.data.Sampler):
+    def __init__(self, data, batch_size) -> None:
         self.data = data
         self.batch_size = batch_size
 
@@ -103,7 +103,8 @@ def train_forward_on_one_df(
 
     df_train = pd.read_pickle(file_path)
     dataset = ForwardDataset(df_train)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler = AccedingSequenceLengthBatchSampler, collate_fn = collate_batch)
+    sampler = AccedingSequenceLengthBatchSampler(dataset, batch_size)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler =sampler, collate_fn = collate_batch)
 
     forward_model.train()
     pytorch_total_params = sum(

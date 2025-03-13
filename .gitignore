@@ -24,6 +24,6 @@ training_words.pkl
 vectors_[0-9]*.pkl
 word_counter_[0-9]*.pkl
 *.300.bin*
-*_de.pkl
+vectors_de.pkl
 splitting_data/word_counter_de.pkl
 splitting_data/word_counter_en.pkl

@@ -27,3 +27,4 @@ word_counter_[0-9]*.pkl
 vectors_de.pkl
 splitting_data/word_counter_de.pkl
 splitting_data/word_counter_en.pkl
+models/

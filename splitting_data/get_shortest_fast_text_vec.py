@@ -7,21 +7,26 @@ import fasttext
 from split_utils import replace_special_chars
 import pandas as pd
 from decimal import Decimal, getcontext
-
+import time
 
 def min_euclidean_kdtree(points):
     # Convert to NumPy array if not already
     points = np.array(points, dtype=np.float64)
     
     tree = KDTree(points)
-    distances, _ = tree.query(points, k=2, p=2)
+    distances, indexes = tree.query(points, k=2, p=2, workers=-1)
     
     # Get the minimum non-zero distance
     min_distance = np.min(distances[:, 1])
+    min_distance_index = np.argmin(distances[:, 1])
+    min_neighbour_index = indexes[min_distance_index, 1]
+
+    smallest_pair = (min_distance_index,min_neighbour_index, points[min_distance_index], points[min_neighbour_index])
+    
     
     # Convert to Decimal for higher precision representation
     getcontext().prec = 28  # Set precision to 28 digits
-    return Decimal(str(min_distance))
+    return Decimal(str(min_distance)), smallest_pair
 
 def check_incongruence(language, vectors_dict):
     print(f"Checking incongruence for {language}")
@@ -53,11 +58,21 @@ def get_smallest_vector(language,vectors_dict):
   
     vectors_and_words = list(vectors_dict.values())
     vectors = [s[0] for s in vectors_and_words]
+    words = [s[1] for s in vectors_and_words]
     vectors = np.array(vectors)
     print(f"Loaded {vectors.shape} vectors")
+    prev_length = vectors.shape[0]
     assert vectors.shape[1] == 300
-    min_distance = min_euclidean_kdtree(vectors)
+    #filtered_list = [vec for vec in vectors if np.any(vec)]
+    #vectors = np.array(filtered_list)
+    print(f"Filtered {vectors.shape} vectors")
+    current_length = vectors.shape[0]
+    print(f"Filtered {prev_length - current_length} vectors")
+    min_distance, smallest_pair = min_euclidean_kdtree(vectors)
     print(f"The smallest distance between vectors in {language} is {min_distance}")
+    print(f", corresponding to the words {words[smallest_pair[0]]} and {words[smallest_pair[1]]}")
+    time.sleep(1)
+    print(f"with the vectors {smallest_pair[2]} and {smallest_pair[3]}")
     pickle.dump(min_distance, open(f"min_distance_{language}.pkl", "wb"))
     return min_distance
 

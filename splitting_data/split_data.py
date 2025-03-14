@@ -160,8 +160,9 @@ def split_data(
 
                 unique_identifier = file.split("df")[1]
                 logging.debug(unique_identifier)
-                for _, row in data.iterrows():
+                for i, row in data.iterrows():
                     word = row["lexical_word"]
+                    row["origin"] = (unique_identifier,i)
                     if test_words[word] > 0:
                         test_words[word] -= 1
                         test_rows.append(row)
@@ -177,20 +178,16 @@ def split_data(
                 # we drop unnecessary columns
                 test_df_i = pd.DataFrame(test_rows)
                 if len(test_df_i) != 0:
-                    test_df_i.drop(columns=["mfa_word", "mfa_phones", "wav_recording"])
+                    test_df_i = test_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
 
                 validation_df_i = pd.DataFrame(validation_rows)
                 if len(validation_df_i) != 0:
 
-                    validation_df_i.drop(
-                        columns=["mfa_word", "mfa_phones", "wav_recording"]
-                    )
+                    validation_df_i = validation_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
 
                 training_df_i = pd.DataFrame(training_rows)
                 if len(training_df_i) != 0:
-                    training_df_i.drop(
-                        columns=["mfa_word", "mfa_phones", "wav_recording"]
-                    )
+                  training_df_i =  training_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
 
 
                 test_df = pd.concat([test_df, test_df_i])
@@ -286,6 +283,9 @@ def split_data(
 
     def split_and_save_dataframe(df, data_size, data_path, base_filename="", index=i, language = "no_language_provided"):
         os.makedirs(data_path, exist_ok=True)  # Ensure directory exists
+        if language == "no_language_provided":
+            logging.warning("No language provided. This may cause issues with the data.")
+            language = ""
 
         num_splits = (len(df) + data_size - 1) // data_size  # Ceiling division
 
@@ -329,8 +329,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_size", type=int, help="Size of the data in rows.", default=50000
     )
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
     args = parser.parse_args()
-
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
     language = args.language
     data_path = args.data_path + f"_{language}"
 

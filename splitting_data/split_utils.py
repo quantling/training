@@ -4,7 +4,7 @@ class NotEnoughDiskSpaceError(Exception):
         self.message = message
         super().__init__(self.message)
 
-
+import re
 def replace_special_chars(word):
     """This function is used to replace special characters in a word. It is in this file so that characters for both multiprocessing and single processing are the same"""
 
@@ -33,3 +33,9 @@ def replace_special_chars(word):
         .replace("’", "")
     )
     return cleaned_word
+
+import pickle
+def open_pickle(file):
+    
+    with open(file, "rb") as f:
+        return pickle.load(f)

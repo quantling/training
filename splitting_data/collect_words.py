@@ -1,5 +1,5 @@
 
-data_path = "../../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_de"
+
 import logging
 import os
 logging.basicConfig(level=logging.INFO)
@@ -8,7 +8,7 @@ import os
 import pandas as pd
 import pickle
 from tqdm import tqdm
-
+from split_utils import replace_special_chars
 import psutil
 
 import argparse
@@ -32,14 +32,24 @@ def collect_words(data_path, collumn_name):
             if files.endswith(".pkl"):
                 data = pd.read_pickle(os.path.join(data_path,files))
                 if isinstance(data, pd.DataFrame):
-                    print(data.columns)
-                    for word in list(data[collumn_name]):
+                    
+                    for i,row in data.iterrows():
+                        word = row[collumn_name]
+                        cleaned_word = replace_special_chars(word).lower()
+                        mfa_word = row["mfa_word"]
+                        cleaned_mfa_word = replace_special_chars(mfa_word).lower()
+                        if cleaned_word != cleaned_mfa_word:
+                            print(f"Word: {word} MFA: {mfa_word}, no match since cleaned_word: {cleaned_word} cleaned_mfa_word: {cleaned_mfa_word}")
+                            continue
                         words[word] += 1
                         word_list.append(word)
                 else:
                     print(f"Data is not a DataFrame: {files}")
             []
             i += 1
+            temp_path = os.path.join(data_path,files) + "_temp"
+            data.to_pickle(temp_path)
+            os.rename(temp_path, os.path.join(data_path,files))
             print(f"Processed {i} files")
             print(files)
             print(f"Memory usage: {psutil.virtual_memory().percent}%")
@@ -51,7 +61,9 @@ def collect_words(data_path, collumn_name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Collect words from a folder of pickled dataframes")
-    parser.add_argument("--data_path", help="Path to the folder containing the pickled dataframes", default = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_de")
-    parser.add_argument("--collumn_name", help="The name of the collumn containing the words", default = "label")
+    parser.add_argument("--data_path", help="Path to the folder containing the pickled dataframes", default = "../../../../mnt/Restricted/Corpora/CommonVoiceVTL/corpus_as_df_mp_folder_")
+    parser.add_argument("--collumn_name", help="The name of the collumn containing the words", default = "lexical_word")
+    parser.add_argument("--language", help="The language of the data", default = "de")
     args = parser.parse_args()
-    collect_words(args.data_path, args.collumn_name)
+    data_path = args.data_path + args.language
+    collect_words(data_path, args.collumn_name)

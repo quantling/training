@@ -9,21 +9,38 @@ import argparse
 from tqdm import tqdm
 import logging
 import shutil
-
-from split_utils import NotEnoughDiskSpaceError
+import time
+from split_utils import NotEnoughDiskSpaceError, replace_special_chars
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 
 
-def split_words(data_path, skip_index, language):
+def split_words(data_path, skip_index, language, incongruent_words, dublicate_vectors):
     # Load the word counts
-    words = pickle.load(open(f"words_{language}.pkl", "rb"))
+    words = pickle.load(open(f"word_counter_{language}.pkl", "rb"))
 
     # Initialize counters for test, validation, and training splits
     test_words = Counter()
     validation_words = Counter()
     training_words = Counter()
 
+    # Remove incongruent words
+    for word in incongruent_words["lexical_word"]:
+        if word in words:
+            words[word] -= 1
+            logging.info(f"Removing one count of  {word} from words due to incongruent words")
+            if words[word] == 0:
+                del words[word]
+    time.sleep(5)
+    ## Remove words from dublicate vectors
+    for word in dublicate_vectors["lexical_word"]:
+        if word in words:
+            words[word] -= 1
+            logging.info(f"Removing one count of  {word} from words due to dublicate vectors")
+            if words[word] == 0:
+                del words[word]
+    time.sleep(5)
     # Distribute word counts into test, validation, and training
     print(words.items())
     for word in words:
@@ -71,7 +88,7 @@ def split_words(data_path, skip_index, language):
     pickle.dump(validation_words, open(f"validation_words_{language}.pkl", "wb"))
     pickle.dump(training_words, open(f"training_words_{language}.pkl", "wb"))
     return split_data(
-        data_path, skip_index, test_words, validation_words, training_words, language
+        data_path, skip_index, test_words, validation_words, training_words, language, dublicate_vectors
     )
 
 
@@ -82,6 +99,7 @@ def split_data(
     validation_words,
     training_words,
     language,
+    dublicate_vectors,
     data_size=5000,
 ):
     dir_names = []
@@ -154,14 +172,39 @@ def split_data(
                 raise NotEnoughDiskSpaceError()
             logging.info(f"Processing {file}")
             data = pd.read_pickle(os.path.join(data_path, file))
+            dublicate_vectors.dropna(inplace=True)
             if isinstance(data, pd.DataFrame):
 
                 # Split data based on the counters
-
                 unique_identifier = file.split("df")[1]
                 logging.debug(unique_identifier)
+                logging.info("Now going through the data")
                 for i, row in data.iterrows():
                     word = row["lexical_word"]
+
+                    #incongruent words is in a format that has no special characters, so we also need to remove special characters from the word
+                    cleaned_word = replace_special_chars(word).lower()
+                    cleaned_mfa_word = replace_special_chars(row["mfa_word"]).lower()
+                    if cleaned_word != cleaned_mfa_word:
+                        logging.warning(f"Word {word} is not the same as the mfa_word {row['mfa_word']} since no match for '{cleaned_word}' and '{cleaned_mfa_word}'")
+                        continue
+                   
+
+                    if i % 1000 == 0:
+                        logging.info(f"Processing row {i} of {len(data)}")
+                    
+
+                    mask = dublicate_vectors["lexical_word"] == cleaned_word
+                    logging.debug(mask)
+                    row_with_dublicate_vector = dublicate_vectors[
+                        mask
+                        ]
+                    if len(row_with_dublicate_vector) > 0 and i in row_with_dublicate_vector.index:
+                        logging.info(f"Skipping row with dublicate vector {word}")
+                        continue
+
+                    
+                   
                     row["origin"] = (unique_identifier,i)
                     if test_words[word] > 0:
                         test_words[word] -= 1
@@ -178,16 +221,17 @@ def split_data(
                 # we drop unnecessary columns
                 test_df_i = pd.DataFrame(test_rows)
                 if len(test_df_i) != 0:
-                    test_df_i = test_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
+                    print(test_df_i.columns)
+                    test_df_i =  test_df_i[["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_synthesized", "vector", "origin"]]
 
                 validation_df_i = pd.DataFrame(validation_rows)
                 if len(validation_df_i) != 0:
 
-                    validation_df_i = validation_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
+                    validation_df_i = validation_df_i[["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_synthesized", "vector", "origin"]]
 
                 training_df_i = pd.DataFrame(training_rows)
                 if len(training_df_i) != 0:
-                  training_df_i =  training_df_i(columns=["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_sythesized", "vector", "origin"])
+                  training_df_i =  training_df_i[["lexical_word","cp_norm", "melspec_norm_recorded","melspec_norm_synthesized", "vector", "origin"]]
 
 
                 test_df = pd.concat([test_df, test_df_i])
@@ -338,8 +382,10 @@ if __name__ == "__main__":
 
     skip_index = args.skip_index
 
+    incongruent_words = pd.read_csv(f"incongruent_words_{language}.csv")
+    dublicate_vectors = pd.read_csv(f"dublicate_vectors_{language}.csv")
     if args.split_words:
-        split_words(data_path, skip_index, language)
+        split_words(data_path, skip_index, language, incongruent_words, dublicate_vectors)
     else:
         test_path = (
             f"test_words_{language}.pkl"
@@ -366,5 +412,8 @@ if __name__ == "__main__":
             validation_words,
             training_words,
             language,
+            dublicate_vectors,
             data_size=args.data_size,
+           
+    
         )

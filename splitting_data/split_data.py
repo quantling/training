@@ -182,7 +182,6 @@ def split_data(
                 for i, row in data.iterrows():
                     word = row["lexical_word"]
 
-                    #incongruent words is in a format that has no special characters, so we also need to remove special characters from the word
                     cleaned_word = replace_special_chars(word).lower()
                     cleaned_mfa_word = replace_special_chars(row["mfa_word"]).lower()
                     if cleaned_word != cleaned_mfa_word:

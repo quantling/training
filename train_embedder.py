@@ -170,22 +170,20 @@ def train_embedder_on_whole_dataset(
                 embedding_model=embedding_model,
             )
             logging.info(f"Finished training on {file}")
-            if i % validate_every == 0:
+        if epoch % validate_every == 0:
+                logging.info(f"Validating on {len(validation_files)} files")
                 logging.debug(f"Model type: {embedding_model}")
-                logging.info(f"Criteron type: {criterion}")
-                mean_loss, std_loss = validate_whole_dataset(
-                validation_files,
-                data_path,
+                logging.debug(f"Criteron type: {criterion}")
+                mean_loss, std_loss = validate_whole_dataset(validation_files,data_path,
                 batch_size=batch_size,
                 device=device,
                 criterion=criterion,
                 model=embedding_model,
-                validate_on_one_df=validate_embedder_on_one_df,
-            )
-            logging.info(f"Mean valdiation loss: {mean_loss}, Std loss: {std_loss}")
-            validation_losses.append(mean_loss)
-            plot_validation_losses(validation_losses, language, model_name="embedder")
-            if i % save_every == 0:
+                validate_on_one_df=validate_embedder_on_one_df,)
+                logging.info(f"Mean valdiation loss: {mean_loss}, Std loss: {std_loss}")
+                validation_losses.append(mean_loss)
+                plot_validation_losses(validation_losses, language, model_name="embedder")
+        if epoch % save_every == 0 or epoch == epochs - 1:
                 torch.save(embedding_model.state_dict(), f"embedding_model_{language}.pt")
                 torch.save(optimizer.state_dict(), f"optimizer_{language}.pt")
 

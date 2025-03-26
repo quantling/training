@@ -13,6 +13,7 @@ import pickle
 import logging
 import gc
 import argparse
+import math
 
 logging.basicConfig(level=logging.INFO)
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -46,6 +47,7 @@ class ForwardDataset(Dataset):
             lambda x: torch.tensor(x, dtype=torch.float64)
         )
         self.cp_norm = self.df["cp_norm"].tolist()
+        self.sizes = [len(x) for x in self.cp_norm]  # Assuming cp_norm has the sequence lengths
 
     def __len__(self):
         logging.debug(f"len of df: {len(self.df)}")
@@ -62,7 +64,7 @@ class ForwardDataset(Dataset):
 class AccedingSequenceLengthBatchSampler(torch.utils.data.BatchSampler):
     def __init__(self, data_source, batch_size, drop_last=False):
         # Get the lengths of sequences
-        self.sizes = [len(x) for x in data_source.cp_norm]  # Assuming cp_norm has the sequence lengths
+        self.sizes = data_source.sizes # Assuming cp_norm has the sequence lengths
         self.batch_size = batch_size
         self.drop_last = drop_last
 
@@ -108,7 +110,7 @@ def collate_batch_with_padding(batch):
     logging.debug(f"batch in collate_batch: {batch}")
     
     max_length_cps = max( len(sample[0]) for sample in batch)
-    max_length_melspecs = max_length_cps // 2
+    max_length_melspecs =math.ceil(max_length_cps /2)
     logging.debug(f"max_length_melspecs: {max_length_melspecs}")
     logging.debug(f"max_length_cps: {max_length_cps}")
     padded_cps= []
@@ -120,7 +122,7 @@ def collate_batch_with_padding(batch):
         padded_cp, _ = pad_tensor(sample[0], max_length_cps)
         logging.debug(f"padded_melspec shape: {padded_melspec.shape}")
         logging.debug(f"padded_cp shape: {padded_cp.shape}")
-        assert padded_cp.shape[0] == padded_melspec.shape[0] * 2, f"Shapes are {padded_cp.shape} and {padded_melspec.shape}"
+        #assert padded_cp.shape[0] == padded_melspec.shape[0] * 2 if padded_cp.shape[0] % 2 == 0 else  padded_cp.shape[0] == (padded_melspec.shape[0] * 2) -1 , f"Shapes are  cp : {padded_cp.shape} and  melspec: {padded_melspec.shape}"
         padded_melspecs.append(padded_melspec)
         padded_cps.append(padded_cp)
         mask.append(sample_mask)
@@ -154,15 +156,16 @@ def train_forward_on_one_df(
         p.numel() for p in forward_model.parameters() if p.requires_grad
     )
     logging.info("Trainable Parameters in Model: %s", pytorch_total_params)
-
+    
     #is the optimizer updated from the last df?
     if optimizer is None:
         raise ValueError("Optimizer is None")
     if criterion is None:
         raise ValueError("Criterion is None")
 
-    for batch in iter(dataloader):
+    for batch in tqdm(iter(dataloader)):
         #logging.debug(batch)
+        
         cp, melspec = batch
         cp = cp.to(device)
         melspec = melspec.to(device)
@@ -171,17 +174,25 @@ def train_forward_on_one_df(
         optimizer.zero_grad()
         output = forward_model(cp)
         logging.debug(f"output shape: {output.shape}")
+        logging.debug(f"cp shape: {cp.shape}")
+        logging.debug(f"melspec shape: {melspec.shape}")
+        if output.shape[1] != melspec.shape[1]:
+            logging.debug(f"Shapes are output :{output.shape} and  melspec: {melspec.shape} and cp shape is {cp.shape}")
+            melspec = melspec[:, :output.shape[1], :] #but what happens here?
+        assert output.shape[1] == melspec.shape[1], f"Shapes are output :{output.shape} and  melspec: {melspec.shape} and cp shape is {cp.shape}"
         loss = criterion(output, melspec)
         loss.backward()
         optimizer.step()
-        print(loss.item())
+        logging.debug(f"loss: {loss.item()}")
+
+    return forward_model
 
 def validate_forward_on_one_df(
     batch_size=8,
     device="cuda",
     file_path="",
     criterion=None,
-    forward_model=None,
+    model=None,
 ):
 
     df_train = pd.read_pickle(file_path)
@@ -193,7 +204,7 @@ def validate_forward_on_one_df(
     collate_fn=collate_batch_with_padding
 )
 
-    forward_model.eval()
+    model.eval()
     
     losses = []
    
@@ -209,37 +220,47 @@ def validate_forward_on_one_df(
         cp = cp.squeeze(1)
         melspec = melspec.squeeze(1)
         assert cp.shape[2] == 30 and melspec.shape[2] == 60, f"Shapes are {cp.shape} and {melspec.shape}"
-        output = forward_model(cp)
+        output = model(cp)
+        logging.debug(f"cp shape: {cp.shape}")
         logging.debug(f"output shape: {output.shape}")
-        loss = criterion(output, melspec)
+        logging.debug(f"melspec shape: {melspec.shape}")
+        assert output.shape[1] == melspec.shape[1], f"Shapes are {output.shape} and {melspec.shape}"
+        loss = criterion( melspec,output)
 
      
         losses.append(loss.item())
+    
 
     return np.mean(losses), np.std(losses), losses
 
-def validate_whole_dataset(files, data_path, batch_size = 8, device = DEVICE, criterion = None, optimizer_module= None, forward_model = None):
+def validate_whole_dataset(files, data_path, batch_size = 8, device = DEVICE, criterion = None,  model = None, validate_on_one_df = validate_forward_on_one_df):
     
     
     logging.debug(files)
     total_losses = []
     for file in files:
-        mean_loss, std_loss, epoch_losses =validate_forward_on_one_df(
+        logging.info(f" Model type {model}")
+        mean_loss, std_loss, epoch_losses =validate_on_one_df(
             batch_size=batch_size,
             device=device,
             file_path=os.path.join(data_path, file),
             criterion=criterion,
-            forward_model=forward_model,
+            model=model,
         )
-        total_losses.extend(epoch_losses)#
+        total_losses.extend(epoch_losses)
         logging.info(f"Mean loss: {mean_loss}, Std loss: {std_loss}")
 
         gc.collect()
     
+    with open("validation_losses.txt", "w") as f:
+        for loss in total_losses:
+            f.write(f"{loss}\n")
+    
     return np.mean(total_losses), np.std(total_losses)
 
 def train_whole_dataset(
-   data_path,  batch_size = 8 , lr = 1e-4, device = DEVICE, criterion = None, optimizer_module= None, epochs=10, start_epoch = 0 , skip_index = 0, validate_every = 1, save_every = 1 ,language = ""
+   data_path,  batch_size = 8 , lr = 1e-4, device = DEVICE, criterion = None, optimizer_module= None, epochs=10, start_epoch = 0 , skip_index = 0, validate_every = 1, save_every = 1 ,language = "",
+   load_from = ""
 ):  
     data_path = data_path + args.language
     files = os.listdir(data_path)
@@ -259,7 +280,13 @@ def train_whole_dataset(
         .to(DEVICE)
     )
     optimizer = optimizer_module(forward_model.parameters(), lr=lr)
-
+    if load_from != "":
+        forward_model.load_state_dict(torch.load(load_from))
+        optimizer.load_state_dict(torch.load(load_from.replace("forward_model", "optimizer")))
+        validation_losses = pickle.load(open(load_from.replace("forward_model", "validation_losses"), "rb"))
+        epoch = pickle.load(open(load_from.replace("forward_model", "epoch"), "rb"))
+        skip_index = pickle.load(open(load_from.replace("forward_model", "skip_index"), "rb"))
+        logging.info(f"Loaded model from {load_from}")
     validation_losses = []
     for epoch in tqdm(range(epochs)):
         np.random.shuffle(filtered_files)
@@ -268,6 +295,7 @@ def train_whole_dataset(
         for i,file in enumerate(shuffeled_files):
             if i < skip_index:
                 continue
+            logging.info(f"Training on {file}")
             train_forward_on_one_df(
                 batch_size=batch_size,
                 lr=lr,
@@ -287,16 +315,18 @@ def train_whole_dataset(
                 device=device,
                 criterion=criterion,
                 optimizer_module=optimizer_module,
-                forward_model=forward_model,
+                model=forward_model,
             )
             logging.info(f"Mean valdiation loss: {mean_loss}, Std loss: {std_loss}")
             validation_losses.append(mean_loss)
+            plot_validation_losses(validation_losses, language, save_path=".")
         if epoch % save_every == 0 or epoch == epochs - 1:
             model_name = f"forward_model_{args.language}_{epoch}.pt"
             os.makedirs("models", exist_ok=True)
             model_dir = os.path.join("models", model_name)
             os.makedirs(model_dir, exist_ok=True)
             torch.save(forward_model.state_dict(), os.path.join(model_dir,f"forward_model_{language}_{epoch}.pt"))
+            torch.save(optimizer.state_dict(), os.path.join(model_dir, f"optimizer_{language}_{epoch}.pt"))
             pickle.dump(validation_losses, open(os.path.join(model_dir,f"validation_losses_{language}.pkl"), "wb"))
             pickle.dump(epoch, open(os.path.join(model_dir,f"epoch_{language}.pkl"), "wb"))
             pickle.dump(skip_index, open(os.path.join(model_dir,f"skip_index_{language}.pkl"), "wb"))
@@ -305,6 +335,32 @@ def train_whole_dataset(
 
     logging.info("Finished training")
         
+
+import matplotlib.pyplot as plt
+
+def plot_validation_losses(validation_losses, language, save_path=".", model_name="forward_model"):
+    """
+    Plots the mean validation losses over epochs and saves the plot.
+    
+    :param validation_losses: List of mean validation losses.
+    :param language: String representing the language.
+    :param save_path: Directory where the plot should be saved.
+    """
+    epochs = range(1, len(validation_losses) + 1)
+    
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, validation_losses, marker='o', linestyle='-', label='Mean Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Validation Loss over Epochs ({language})')
+    plt.legend()
+    plt.grid(True)
+    
+    plot_name = f"validation_losses_{model_name}_{language}_{len(validation_losses)}.png"
+    plt.savefig(f"{save_path}/{plot_name}")
+    plt.show()
+    
+    print(f"Plot saved as {save_path}/{plot_name}")
 
 
 if __name__ == "__main__":
@@ -332,9 +388,20 @@ if __name__ == "__main__":
     parser.add_argument("--lr", help="Learning rate", default=1e-4, type=float)
     parser.add_argument("--epochs", help="Number of epochs", default=10, type=int)
     parser.add_argument("--validate_every", help="Validate every n epochs", default=1, type=int)
-    parser.add_argument("--save_every", help="Save every n epochs", default=8, type=int)
+    parser.add_argument("--save_every", help="Save every n epochs", default=1, type=int)
     parser.add_argument("--debug", help="if you use debug mode", action="store_true")
+    parser.add_argument("--load_model", help="Load model from path", default="")
+    parser.add_argument("--seed", help="Seed for random number generator", default=42, type=int)
+    parser.add_argument("--testmode", help="Test mode", action="store_true")
     args = parser.parse_args()
+
+    if args.testmode:
+        data_path = "../../../../../../mnt/Restricted/Corpora/CommonVoiceVTL/mini_corpus_" 
+        args.data_path = data_path
+        logging.info(f"Test mode: {args.data_path}")
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     if args.optimizer == "adam":
@@ -357,5 +424,6 @@ if __name__ == "__main__":
         epochs=args.epochs,
         validate_every=args.validate_every,
         save_every=args.save_every,
+        load_from=args.load_model,
     )
     

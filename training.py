@@ -1,6 +1,6 @@
 """
 This module defines a class to do the training of the component models of
-PAULE.
+PAULE. It was done by Paul a few years ago.
 
 """
 

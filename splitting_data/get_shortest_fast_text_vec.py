@@ -63,8 +63,8 @@ def get_smallest_vector(language,vectors_dict):
     print(f"Loaded {vectors.shape} vectors")
     prev_length = vectors.shape[0]
     assert vectors.shape[1] == 300
-    #filtered_list = [vec for vec in vectors if np.any(vec)]
-    #vectors = np.array(filtered_list)
+    filtered_list = [vec for vec in vectors if np.any(vec)]
+    vectors = np.array(filtered_list)
     print(f"Filtered {vectors.shape} vectors")
     current_length = vectors.shape[0]
     print(f"Filtered {prev_length - current_length} vectors")

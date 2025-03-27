@@ -8,7 +8,7 @@ import os
 from paule.paule import Paule
 from paule.models import EmbeddingModel
 from tqdm import tqdm
-from train_forward import RMSELoss, AccedingSequenceLengthBatchSampler, pad_tensor, validate_whole_dataset, plot_validation_losses
+from training_utils import RMSELoss, AccedingSequenceLengthBatchSampler, pad_tensor, validate_whole_dataset, plot_validation_losses
 import logging
 import pandas as pd
 import pickle
@@ -115,7 +115,9 @@ def train_embedder_on_one_df(
         melspecs, vectors,_, last_indices = batch
         melspecs = melspecs.to(device)
         vectors = vectors.to(device)
-        np.random.normal(0, minimum_distance, vectors.shape)
+        random_added = torch.tensor(np.random.normal(0, minimum_distance, vectors.shape)).to(device)
+        logging.debug(f"Random vector {random_added}")
+        vectors = vectors + random_added
         logging.debug(f"vectors: {vectors.shape}")
         logging.debug(f"melspecs: {melspecs.shape}")
         output = embedding_model(melspecs, last_indices)
@@ -153,10 +155,11 @@ def train_embedder_on_whole_dataset(
 
     filtered_files = [file for file in sorted_files if file.endswith(".pkl") and "train" in file]
     validation_losses = []
-    for epoch in range(start_epoch, epochs):
+    for epoch in tqdm(range(start_epoch, epochs)):
         logging.info(f"Epoch {epoch}")
         np.random.shuffle(filtered_files)
         for i, file in enumerate(filtered_files):
+            logging.info(f"Processing {i}th file out of {len(filtered_files)}")
             if i < skip_index:
                 continue
             logging.info(f"Training on {file}")

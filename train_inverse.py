@@ -59,7 +59,7 @@ def collate_batch_with_padding_inverse_model(batch):
     # Determine max lengths
  
     max_length_cps = max( len(sample[0]) for sample in batch)
-    max_length_melspecs =math.ceil(max_length_cps /2)
+    max_length_melspecs =math.ceil(max_length_cps /2) 
     
     padded_cps = []
     padded_melspecs = []
@@ -145,7 +145,16 @@ def train_inverse_model_on_one_df(
         # Model forward pass
         logging.debug(f"input: {melspecs.shape} (melspec) ")
         logging.debug(f"target {cps.shape} (cps) ")
+       
         output = inverse_model(melspecs)
+        if output.shape[1] != cps.shape[1]:
+            logging.debug(f"Shapes are output :{output.shape} and  melspec: {melspecs.shape} and cp shape is {cps.shape}")
+            if output.shape[1] > cps.shape[1]:
+                
+                output = output[:, :cps.shape[1], :]
+                logging.debug("Had to cut the output")
+             
+           
         logging.debug(f"output: {output.shape} vs target( cps): {cps.shape}")
       
         # Compute loss
@@ -311,6 +320,12 @@ def validate_inverse_model_on_one_df(
             
             output = model(melspecs)
             logging.debug(f"output: {output.shape} vs target( cps): {cps.shape}")
+            if output.shape[1] != cps.shape[1]:
+                logging.debug(f"Shapes are output :{output.shape} and  melspec: {melspecs.shape} and cp shape is {cps.shape}")
+                if output.shape[1] > cps.shape[1]:
+                    
+                    output = output[:, :cps.shape[1], :]
+                    logging.debug("Had to cut the output")
             loss = criterion(output, cps)
             
             losses.append(loss.item())

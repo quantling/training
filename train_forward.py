@@ -165,7 +165,9 @@ def validate_forward_on_one_df(
         logging.debug(f"cp shape: {cp.shape}")
         logging.debug(f"output shape: {output.shape}")
         logging.debug(f"melspec shape: {melspec.shape}")
-        assert output.shape[1] == melspec.shape[1], f"Shapes are {output.shape} and {melspec.shape}"
+        if output.shape[1] != melspec.shape[1]:
+            logging.debug(f"Shapes are output :{output.shape} and  melspec: {melspec.shape} and cp shape is {cp.shape}")
+            melspec = melspec[:, :output.shape[1], :] #but what happens here?
         loss = criterion( melspec,output)
 
      

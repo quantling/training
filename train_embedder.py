@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import numpy as np
 import os
-from paule.paule import Paule
 from paule.models import EmbeddingModel
 from tqdm import tqdm
 from training_utils import RMSELoss, AccedingSequenceLengthBatchSampler, pad_tensor, validate_whole_dataset, plot_validation_losses

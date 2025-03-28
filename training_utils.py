@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import gc
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class RMSELoss(torch.nn.Module):
@@ -93,7 +94,7 @@ def plot_validation_losses(validation_losses, language, save_path=".", model_nam
 
 
 
-def validate_whole_dataset(files, data_path, batch_size = 8, device = DEVICE, criterion = None,  model = None, validate_on_one_df = None):
+def validate_whole_dataset(files, data_path, batch_size = 8, device = DEVICE, criterion = None,  model = None, validate_on_one_df = None, model_name = None):
     
     if model is None:
         raise ValueError("Model is not defined")
@@ -115,7 +116,7 @@ def validate_whole_dataset(files, data_path, batch_size = 8, device = DEVICE, cr
 
         gc.collect()
     
-    with open("validation_losses.txt", "w") as f:
+    with open(f"validation_losses_{model_name}.txt", "w") as f:
         for loss in total_losses:
             f.write(f"{loss}\n")
     

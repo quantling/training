@@ -32,6 +32,8 @@ class AccedingSequenceLengthBatchSampler(torch.utils.data.BatchSampler):
         batches = [indices[i:i + self.batch_size] for i in range(0, len(indices), self.batch_size)]
         if self.drop_last and len(batches[-1]) < self.batch_size:
             batches.pop()
+        # Shuffle the batches
+        np.random.shuffle(batches)
         for batch in batches:
             yield batch
 

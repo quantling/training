@@ -78,14 +78,17 @@ def collate_batch_with_padding_embedder(batch):
     return torch.stack(padded_melspecs), torch.stack(sample_vectors), torch.stack(mask), torch.stack(last_indices)
 
 def train_embedder_on_one_df(
-    batch_size=8,
-    lr=1e-3,
-    device="cuda",
-    file_path="",
-    criterion=None,
-    optimizer=None,
-    embedding_model=None,
+            batch_size=8,
+            lr=1e-3,
+            device="cuda",
+            file_path="",
+            criterion=None,
+            optimizer=None,
+        embedding_model=None,
 ):
+    """
+    Trains the embedder model on one dataframe.
+    """
 
     df_train = pd.read_pickle(file_path)
     logging.info(f"Creating dataset from {file_path}")
@@ -93,9 +96,10 @@ def train_embedder_on_one_df(
     sampler = AccedingSequenceLengthBatchSampler(dataset, batch_size)
     logging.info(f"Creating dataloader from {file_path}")
     dataloader = DataLoader(
-    dataset, 
-    batch_sampler=sampler,  # Use batch_sampler instead of batch_size and sampler
-    collate_fn=collate_batch_with_padding_embedder)
+            dataset, 
+            batch_sampler=sampler,  # Use batch_sampler instead of batch_size and sampler
+            collate_fn=collate_batch_with_padding_embedder
+            )
 
     embedding_model.train()
     pytorch_total_params = sum(
@@ -140,10 +144,12 @@ def train_embedder_on_whole_dataset(
         raise ValueError("minimum_distance is None")
     
     embedding_model = EmbeddingModel(input_size=60,
-                            num_lstm_layers=2,
-                            hidden_size=360,
-                            dropout=0.7,
-                            post_upsampling_size=0).double() # right now just taken from Pauls old code
+                                     output_size=300,
+                                    num_lstm_layers=2,
+                                    hidden_size=720,
+                                    dropout=0.7,
+                                    post_upsampling_size=0
+                                    ).double() # right now just taken from Pauls old code
     optimizer = optimizer_module(embedding_model.parameters(), lr=lr)
     if load_from:	
         embedding_model.load_state_dict(torch.load(load_from))

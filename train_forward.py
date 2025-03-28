@@ -127,7 +127,6 @@ def train_forward_on_one_df(
         optimizer.step()
         logging.debug(f"loss: {loss.item()}")
 
-    return forward_model
 
 def validate_forward_on_one_df(
     batch_size=8,
@@ -141,10 +140,10 @@ def validate_forward_on_one_df(
     dataset = ForwardDataset(df_train)
     sampler = AccedingSequenceLengthBatchSampler(dataset, batch_size)
     dataloader = DataLoader(
-    dataset, 
-    batch_sampler=sampler,  # Use batch_sampler instead of batch_size and sampler
-    collate_fn=collate_batch_with_padding
-)
+            dataset, 
+            batch_sampler=sampler,  # Use batch_sampler instead of batch_size and sampler
+            collate_fn=collate_batch_with_padding
+    )
 
     model.eval()
     

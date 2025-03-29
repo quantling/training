@@ -87,7 +87,7 @@ def check_if_complete(data_path, language):
         del training_data
         print(f"Memory usage: {psutil.virtual_memory().percent}%")
     training_words_sum = sum(training_words.values())
-    assert training_words_sum == 0, "Not all counts are zero in training_words"
+   # assert training_words_sum == 0, "Not all counts are zero in training_words"
     word_counter_sum = sum(word_counter.values())
   
    

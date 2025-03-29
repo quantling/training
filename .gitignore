@@ -18,6 +18,7 @@ lexical_embedding_vectors2.pkl
 
 *words_*
 words.pkl
+word_list.pkl
 test_words.pkl
 validation_words.pkl
 training_words.pkl

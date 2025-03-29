@@ -255,9 +255,13 @@ def train_inverse_model_on_whole_dataset(
             plot_validation_losses(validation_losses, language, model_name="inverse_model")
         
         if epoch % save_every == 0 or epoch == epochs - 1:
-            torch.save(inverse_model.state_dict(), f"inverse_model_{language}.pt")
-            torch.save(optimizer.state_dict(), f"optimizer_inverse_model_{language}.pt")
-
+            modeld_dir = os.path.join(data_path, "models")
+            os.makedirs(modeld_dir, exist_ok=True)
+            specific_model_dir = os.path.join(modeld_dir, f"inverse_mode_{language}_{epoch}")
+            os.makedirs(specific_model_dir, exist_ok=True)
+            torch.save(inverse_model.state_dict(), os.path.join(specific_model_dir, f"inverse_model_{language}_{epoch}.pt"))
+            torch.save(optimizer.state_dict(), os.path.join(specific_model_dir, f"optimizer_inverse_model_{language}_{epoch}.pt"))
+            logging.info(f"Saved inverse model and optimizer state at epoch {epoch}")
     logging.info("Finished training the inverse model")
 
 def validate_inverse_model_on_one_df(

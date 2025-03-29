@@ -192,9 +192,14 @@ def train_embedder_on_whole_dataset(
                 validation_losses.append(mean_loss)
                 plot_validation_losses(validation_losses, language, model_name="embedder")
         if epoch % save_every == 0 or epoch == epochs - 1:
-                torch.save(embedding_model.state_dict(), f"embedding_model_{language}.pt")
-                torch.save(optimizer.state_dict(), f"optimizer_{language}.pt")
-
+                logging.info(f"Saving inverse model after {epoch} epochs")
+                model_dir = os.path.join(data_path, "models")
+                os.makedirs(model_dir, exist_ok=True)
+                specific_model_dir = os.path.join(model_dir, f"embedding_model_{language}_{epoch}")
+                os.makedirs(specific_model_dir, exist_ok=True)
+                torch.save(embedding_model.state_dict(), os.path.join(specific_model_dir, f"embedding_model_{language}_{epoch}.pt"))
+                torch.save(optimizer.state_dict(), os.path.join(specific_model_dir, f"optimizer_{language}_{epoch}.pt"))
+                
     logging.info("Finished training the embedder")
 
 

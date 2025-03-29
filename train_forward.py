@@ -235,7 +235,7 @@ def train_whole_dataset(
                 batch_size=batch_size,
                 device=device,
                 criterion=criterion,
-                optimizer_module=optimizer_module,
+                model_name="forward_model",
                 model=forward_model,
                 validate_on_one_df=validate_forward_on_one_df,
             )
@@ -243,14 +243,14 @@ def train_whole_dataset(
             validation_losses.append(mean_loss)
             plot_validation_losses(validation_losses, language, save_path=".")
         if epoch % save_every == 0 or epoch == epochs - 1:
-            model_name = f"forward_model_{args.language}_{epoch}.pt"
+            model_name = f"forward_model_{args.language}_{epoch}"
             os.makedirs("models", exist_ok=True)
             model_dir = os.path.join("models", model_name)
             os.makedirs(model_dir, exist_ok=True)
             torch.save(forward_model.state_dict(), os.path.join(model_dir,f"forward_model_{language}_{epoch}.pt"))
-            torch.save(optimizer.state_dict(), os.path.join(model_dir, f"optimizer_{language}_{epoch}.pt"))
-            pickle.dump(validation_losses, open(os.path.join(model_dir,f"validation_losses_{language}.pkl"), "wb"))
-            pickle.dump(epoch, open(os.path.join(model_dir,f"epoch_{language}.pkl"), "wb"))
+            torch.save(optimizer.state_dict(), os.path.join(model_dir, f"optimizer_forward_model_{language}_{epoch}.pt"))
+            pickle.dump(validation_losses, open(os.path.join(model_dir,f"validation_losses_forward_model_{language}.pkl"), "wb"))
+            pickle.dump(epoch, open(os.path.join(model_dir,f"epoch_forward_{language}.pkl"), "wb"))
             pickle.dump(skip_index, open(os.path.join(model_dir,f"skip_index_{language}.pkl"), "wb"))
             logging.info(f"Saved model, validation losses and epoch")
         skip_index = 0

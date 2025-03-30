@@ -29,3 +29,4 @@ vectors_de.pkl
 splitting_data/word_counter_de.pkl
 splitting_data/word_counter_en.pkl
 models/
+*.pt

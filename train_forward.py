@@ -213,6 +213,7 @@ def train_whole_dataset(
         shuffeled_files = filtered_files
         print(shuffeled_files)
         for i,file in enumerate(shuffeled_files):
+            logging.info(f"Epoch {epoch} - File {file}")
             logging.info(f"Processing {i}th file out of {len(shuffeled_files)}")
             if i < skip_index:
                 continue

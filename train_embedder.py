@@ -164,6 +164,7 @@ def train_embedder_on_whole_dataset(
         logging.info(f"Epoch {epoch}")
         np.random.shuffle(filtered_files)
         for i, file in enumerate(filtered_files):
+            logging.info(f"Epoch {epoch} - File {file}")
             logging.info(f"Processing {i}th file out of {len(filtered_files)}")
             if i < skip_index:
                 continue
